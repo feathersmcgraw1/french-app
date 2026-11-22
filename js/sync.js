@@ -136,7 +136,9 @@ export async function syncNow() {
     after.lastPull = latest;
     saveMeta(after);
     syncState.last = new Date();
-    setStatus('ok');
+    if (!rows.length && !m.lastPull && !store.vocab.length) {
+      setStatus('empty', 'Connected, but nothing is stored under this passphrase. Check that it matches the Mac exactly.');
+    } else setStatus('ok');
   } catch (e) {
     setStatus('error', e.message);
   } finally {
@@ -157,4 +159,12 @@ export function resetSync() {
   const m = meta();
   delete m.lastPull;
   saveMeta(m);
+}
+
+/** First 10 hex characters of the passphrase's SHA-256: the same ID the database stores, so two devices can be compared. */
+export async function passphraseID() {
+  const secret = settings.get('syncSecret') || '';
+  if (!secret) return '';
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 10);
 }

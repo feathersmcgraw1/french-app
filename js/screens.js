@@ -3,7 +3,8 @@ import { html, useState, useWatch, Bold } from './ui.js';
 import { store, settings, level, isLearned } from './store.js';
 import { now, toJS, trim } from './util.js';
 import { session } from './practice.js';
-import { syncState, syncNow, configured, resetSync } from './sync.js';
+import { syncState, syncNow, configured, resetSync, passphraseID } from './sync.js';
+import { useEffect } from './ui.js';
 import { speak, unlockAudio, voiceState, LEVEL_NAMES } from './audio.js';
 import { generate } from './gemini.js';
 
@@ -18,8 +19,8 @@ function greeting() {
 function SyncBadge() {
   useWatch(syncState);
   if (!configured()) return html`<span class="chip warn-chip">Sync off</span>`;
-  const t = { ok: 'Synced', syncing: 'Syncing…', error: 'Sync error', offline: 'Offline', off: 'Sync' }[syncState.status] || 'Sync';
-  return html`<button class=${'chip' + (syncState.status === 'error' ? ' warn-chip' : '')} onClick=${syncNow}>${t}</button>`;
+  const t = { ok: 'Synced', syncing: 'Syncing…', error: 'Sync error', offline: 'Offline', off: 'Sync', empty: 'No data found' }[syncState.status] || 'Sync';
+  return html`<button class=${'chip' + (syncState.status === 'error' || syncState.status === 'empty' ? ' warn-chip' : '')} onClick=${syncNow}>${t}</button>`;
 }
 
 export function HomeView({ go }) {
@@ -102,6 +103,8 @@ function Toggle({ label, k }) {
 export function SettingsView({ go }) {
   useWatch(syncState, voiceState);
   const [test, setTest] = useState('');
+  const [pid, setPid] = useState('');
+  useEffect(() => { passphraseID().then(setPid); }, [settings.get('syncSecret')]);
   async function testKey() {
     setTest('Testing...');
     try { setTest('Response: ' + trim(await generate('Reply with the single word OK.', { temperature: 0, json: false }))); }
@@ -150,7 +153,8 @@ export function SettingsView({ go }) {
       <${Field} label="Sync passphrase (16+ characters)" k="syncSecret" key=${settings.get('syncSecret')} />
       ${!settings.get('syncSecret') ? html`<button class="link" onClick=${newSecret}>Generate a passphrase</button>` : null}
       <div class="row gap"><button class="btn brand" disabled=${!configured()} onClick=${() => { resetSync(); syncNow(); }}>Sync now</button>
-        <span class="small muted">${syncState.status === 'error' ? syncState.message : syncState.last ? 'Last synced ' + syncState.last.toLocaleTimeString() : ''}</span></div>
+        <span class="small muted">${syncState.message || (syncState.last ? 'Last synced ' + syncState.last.toLocaleTimeString() : '')}</span></div>
+      ${pid ? html`<p class="small muted">Passphrase ID: <b>${pid}</b> (must match the Mac's)</p>` : null}
       <p class="small muted">${store.vocab.length} words, ${store.vocab.filter(isLearned).length} learned, ${store.mistakes.length} logged mistakes on this phone.</p>
     </section>
   </div>`;
