@@ -1,57 +1,100 @@
-// App shell: bottom tabs and screen routing.
+// App shell: bottom tabs, the Practice menu, and screen routing.
 import { html, render } from '../vendor/preact-htm.js';
-import { useState, useWatch, Segmented } from './ui.js';
+import { useState, useWatch, Sheet } from './ui.js';
 import { store, settings } from './store.js';
 import { PracticeView, session } from './practice.js';
 import { WordDrill, GenderDrill, ConjugationDrill } from './drillsview.js';
 import { ReadingView } from './reading.js';
 import { ConvoView } from './convo.js';
-import { HomeView, ReviewView, SettingsView } from './screens.js';
+import { HomeView, ReviewView, SettingsView, ProgressView } from './screens.js';
+import { LibraryView } from './library.js';
 import { startSync } from './sync.js';
-import { stopSpeaking, stopListening } from './audio.js';
+import { stopSpeaking, stopListening, unlockAudio } from './audio.js';
 
 const TABS = [
   ['home', 'Home', '⌂'],
   ['practice', 'Practice', '◉'],
-  ['review', 'Review', '↻'],
-  ['reading', 'Read', '❡'],
-  ['chat', 'Chat', '💬'],
+  ['library', 'Library', '▤'],
+  ['progress', 'Progress', '▮▯'],
+  ['settings', 'Settings', '⚙︎'],
 ];
 
-function PracticeHub() {
-  useWatch();
-  const mode = settings.get('practiceMode') || 'sentences';
+export const MODES = [
+  ['sentences', 'Flashcards', 'Sentences from your words, spoken and graded', '🗂'],
+  ['review', 'Review', 'Mistakes that are due again', '↻'],
+  ['words', 'Words', 'Quick single-word recall', 'Aa'],
+  ['gender', 'Gender', 'Le or la?', '♂♀'],
+  ['conj', 'Verbs', 'Conjugation drills', '✎'],
+  ['reading', 'Reading', 'Short texts, tap any word', '❡'],
+  ['chat', 'Conversations', 'Chat with a French friend', '💬'],
+];
+
+function PracticeScreen({ mode, go, openMenu }) {
+  const m = MODES.find((x) => x[0] === mode) || MODES[0];
+  const body = {
+    sentences: html`<${PracticeView} />`,
+    review: html`<${ReviewView} go=${go} />`,
+    words: html`<${WordDrill} />`,
+    gender: html`<${GenderDrill} />`,
+    conj: html`<${ConjugationDrill} />`,
+    reading: html`<${ReadingView} />`,
+    chat: html`<${ConvoView} />`,
+  }[m[0]];
   return html`<div>
-    <${Segmented} value=${mode} onChange=${(m) => { stopSpeaking(); stopListening(); settings.set('practiceMode', m); }}
-      options=${[['sentences', 'Sentences'], ['words', 'Words'], ['gender', 'Gender'], ['conj', 'Verbs']]} />
-    <div class="pad-top">
-      ${mode === 'sentences' ? html`<${PracticeView} />` : mode === 'words' ? html`<${WordDrill} />` : mode === 'gender' ? html`<${GenderDrill} />` : html`<${ConjugationDrill} />`}
+    <div class="row between mode-head">
+      <h2>${m[1]}</h2>
+      <button class="chip-btn" onClick=${openMenu}>Switch ▾</button>
     </div>
+    ${body}
   </div>`;
+}
+
+function PracticeMenu({ open, onClose, onPick }) {
+  useWatch(store, session);
+  const due = store.dueMistakeCount;
+  return html`<${Sheet} open=${open} onClose=${onClose} title="Practice">
+    <div class="menu">
+      ${MODES.map(([id, title, sub, icon]) => html`<button class="menu-item" onClick=${() => onPick(id)}>
+        <span class="mi-icon">${icon}</span>
+        <span class="mi-text"><b>${title}</b><span class="small muted">${id === 'review' && due ? `${due} due now` : id === 'sentences' && session.phase !== 'idle' ? 'Session in progress' : sub}</span></span>
+        <span class="muted">›</span>
+      </button>`)}
+    </div>
+  </${Sheet}>`;
 }
 
 function App() {
   useWatch(store, session);
   const [tab, setTab] = useState('home');
-  const go = (t) => {
-    if (t !== tab) { stopListening(); }
-    if (t === 'practice' && (session.phase !== 'idle' || session.reviewOnly)) settings.set('practiceMode', 'sentences');
+  const [menu, setMenu] = useState(false);
+  const mode = settings.get('practiceMode') || 'sentences';
+
+  const go = (t, m) => {
+    unlockAudio();
+    if (t !== tab || (m && m !== mode)) { stopListening(); }
+    if (m) {
+      if (m !== mode) stopSpeaking();
+      settings.set('practiceMode', m);
+    }
     setTab(t);
+    setMenu(false);
     window.scrollTo(0, 0);
   };
+  const tapTab = (t) => (t === 'practice' ? setMenu(true) : go(t));
   const due = store.dueMistakeCount;
+
   return html`<div class="app">
     <main>
       ${tab === 'home' ? html`<${HomeView} go=${go} />`
-        : tab === 'practice' ? html`<${PracticeHub} />`
-        : tab === 'review' ? html`<${ReviewView} go=${go} />`
-        : tab === 'reading' ? html`<${ReadingView} />`
-        : tab === 'chat' ? html`<${ConvoView} />`
+        : tab === 'practice' ? html`<${PracticeScreen} mode=${mode} go=${go} openMenu=${() => setMenu(true)} />`
+        : tab === 'library' ? html`<${LibraryView} />`
+        : tab === 'progress' ? html`<${ProgressView} />`
         : html`<${SettingsView} go=${go} />`}
     </main>
-    <nav class="tabs">${TABS.map(([id, label, icon]) => html`<button class=${tab === id ? 'on' : ''} onClick=${() => go(id)}>
-      <span class="ti">${icon}${id === 'review' && due ? html`<em>${due > 99 ? '99+' : due}</em>` : null}</span><span>${label}</span></button>`)}
+    <nav class="tabs">${TABS.map(([id, label, icon]) => html`<button class=${tab === id ? 'on' : ''} onClick=${() => tapTab(id)}>
+      <span class="ti">${icon}${id === 'practice' && due ? html`<em>${due > 99 ? '99+' : due}</em>` : null}</span><span>${label}</span></button>`)}
     </nav>
+    <${PracticeMenu} open=${menu} onClose=${() => setMenu(false)} onPick=${(m) => go('practice', m)} />
   </div>`;
 }
 

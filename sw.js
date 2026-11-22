@@ -1,10 +1,10 @@
 // Offline shell: app files are cached so it opens without a connection. Network first, so updates arrive at once.
-const CACHE = 'french-v1';
+const CACHE = 'french-v2';
 const FILES = [
   './', 'index.html', 'styles.css', 'manifest.webmanifest', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png',
   'vendor/preact-htm.js', 'js/app.js', 'js/ui.js', 'js/store.js', 'js/util.js', 'js/grammar-data.js', 'js/gemini.js',
   'js/audio.js', 'js/sync.js', 'js/drills.js', 'js/practice.js', 'js/drillsview.js', 'js/reading.js', 'js/convo.js',
-  'js/screens.js', 'fonts/Poppins-Regular.ttf', 'fonts/Poppins-SemiBold.ttf', 'fonts/Poppins-Bold.ttf',
+  'js/screens.js', 'js/library.js', 'fonts/Poppins-Regular.ttf', 'fonts/Poppins-SemiBold.ttf', 'fonts/Poppins-Bold.ttf',
 ];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));

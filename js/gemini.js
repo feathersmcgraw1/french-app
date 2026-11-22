@@ -410,3 +410,29 @@ export async function transcribe(wavBase64, lang) {
   const text = await generate(p, { temperature: 0, json: false, parts: [{ inline_data: { mime_type: 'audio/wav', data: wavBase64 } }] });
   return trim(text).replace(/^"|"$/g, '');
 }
+
+// ---------- Grammar lessons and vocab import ----------
+
+export async function lesson(topic) {
+  const p = `You are a clear, friendly French teacher. Write a short lesson for an English-speaking learner on this French grammar point.
+
+Topic: ${topic.title} (CEFR ${topic.level}, category: ${topic.category})
+Sample: ${topic.example}
+
+Format as plain text. Use **bold** for section titles and "- " for bullets. No headings with #, no tables.
+Sections, in order: **The idea**, **How it works**, **Examples** (4 to 6 French sentences, each followed by its English translation after " = "), **Watch out** (common mistakes for English speakers), **Quick check** (3 short exercises) and **Answers**.
+Under 350 words. Return only the lesson text.`;
+  return trim(await generate(p, { temperature: 0.5, json: false }));
+}
+
+export async function extractVocab(base64, mime) {
+  const p = `This is a screenshot from the Babbel language learning app. Extract every French vocabulary item or phrase that appears together with its English translation.
+
+Rules:
+- Keep nouns with their article (for example "le chat").
+- Ignore buttons, menus, progress text, and anything that is not a French/English pair.
+- Do not invent translations that are not on screen. If only French is shown, skip it.
+
+Return only a JSON array: [{"french": "...", "english": "..."}]. Return [] if there is nothing usable.`;
+  return generateJSON(p, 0, asList, { parts: [{ inline_data: { mime_type: mime, data: base64 } }] });
+}

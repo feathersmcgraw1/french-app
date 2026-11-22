@@ -7,6 +7,7 @@ import { syncState, syncNow, configured, resetSync, passphraseID } from './sync.
 import { useEffect } from './ui.js';
 import { speak, unlockAudio, voiceState, LEVEL_NAMES } from './audio.js';
 import { generate } from './gemini.js';
+import { GRAMMAR } from './grammar-data.js';
 
 function greeting() {
   const h = new Date().getHours();
@@ -34,7 +35,7 @@ export function HomeView({ go }) {
   return html`<div class="home">
     <div class="row between">
       <div><h1 class="greet">${greeting()}</h1><p class="muted">${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p></div>
-      <div class="col-end"><${SyncBadge} /><button class="icon-btn" aria-label="Settings" onClick=${() => go('settings')}>⚙︎</button></div>
+      <div class="col-end"><${SyncBadge} /></div>
     </div>
     ${!hasKey ? html`<div class="card warn-card"><b>Add your Gemini key</b><p class="small">Needed for cards, grading and voices.</p><button class="btn brand" onClick=${() => go('settings')}>Open settings</button></div>` : null}
     ${!configured() ? html`<div class="card warn-card"><b>Connect sync</b><p class="small">To get your vocab and progress from the Mac.</p><button class="btn brand" onClick=${() => go('settings')}>Set up sync</button></div>` : null}
@@ -43,9 +44,9 @@ export function HomeView({ go }) {
       <p class="hero-num"><b>${today.cards}</b> of ${goal} cards</p>
       <div class="bar"><i style=${`width:${frac * 100}%`} /></div>
       <p class="small">${today.cards >= goal ? 'Goal reached. Anything more is a bonus.' : `${goal - today.cards} cards to reach today's goal`}</p>
-      <button class="btn yellow" onClick=${() => { unlockAudio(); settings.set('practiceMode', 'sentences'); go('practice'); if (session.phase === 'idle') session.start(); }}>${today.cards === 0 ? 'Start session' : 'Keep going'}</button>
+      <button class="btn yellow" onClick=${() => { unlockAudio(); go('practice', 'sentences'); if (session.phase === 'idle') session.start(); }}>${today.cards === 0 ? 'Start session' : 'Keep going'}</button>
     </div>
-    <button class=${'card review-block' + (due ? ' due' : '')} onClick=${() => go('review')}>
+    <button class=${'card review-block' + (due ? ' due' : '')} onClick=${() => go('practice', 'review')}>
       <b class="big-num">${due || '✓'}</b><span>${due ? (due === 1 ? 'mistake to review' : 'mistakes to review') : 'No mistakes are due'}</span>
     </button>
     <div class="stats">
@@ -69,7 +70,7 @@ export function ReviewView({ go }) {
   return html`<div class="review">
     <div class="card hero-lite">
       <b class="big-num">${due.length}</b><span>${due.length === 1 ? 'mistake due now' : 'mistakes due now'}</span>
-      <button class="btn brand" disabled=${!due.length} onClick=${() => { unlockAudio(); session.start(true); go('practice'); }}>Start review</button>
+      <button class="btn brand" disabled=${!due.length} onClick=${() => { unlockAudio(); session.start(true); go('practice', 'sentences'); }}>Start review</button>
       <p class="small muted">Each one comes back after 2 minutes, then 1, 3, 7 and 14 days.</p>
     </div>
     ${tags.length ? html`<div class="card"><h3>What to work on</h3>${tags.map((x) => html`<div class="tagbar"><div class="row between"><span>${x.tag.charAt(0).toUpperCase() + x.tag.slice(1)}</span><b class="small">${x.count}</b></div><div class="bar thin"><i style=${`width:${(x.count / top) * 100}%`} /></div></div>`)}</div>` : null}
@@ -118,7 +119,7 @@ export function SettingsView({ go }) {
     settings.set('syncSecret', s);
   }
   return html`<div class="settings">
-    <div class="row between"><button class="link" onClick=${() => go('home')}>‹ Home</button><h2>Settings</h2><span /></div>
+    <h2>Settings</h2>
 
     <section class="card"><h3>Gemini</h3>
       <${Field} label="API key" k="geminiKey" type="password" placeholder="Paste key" />
@@ -159,5 +160,61 @@ export function SettingsView({ go }) {
       ${pid ? html`<p class="small muted">Passphrase ID: <b>${pid}</b> (must match the Mac's)</p>` : null}
       <p class="small muted">${store.vocab.length} words, ${store.vocab.filter(isLearned).length} learned, ${store.mistakes.length} logged mistakes on this phone.</p>
     </section>
+  </div>`;
+}
+
+export function ProgressView() {
+  useWatch();
+  const goal = settings.get('dailyGoal');
+  const days = [];
+  for (let i = 13; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push({ d, s: store.stat(d) }); }
+  const peak = Math.max(goal, ...days.map((x) => x.s.cards), 1);
+  const week = days.slice(7).reduce((a, x) => ({ cards: a.cards + x.s.cards, correct: a.correct + x.s.correct }), { cards: 0, correct: 0 });
+  const total = store.vocab.length;
+  const learned = store.learnedCount;
+  const started = store.vocab.filter((v) => v.seen && !isLearned(v)).length;
+  const fresh = total - learned - started;
+  const tags = store.tagCounts(true).slice(0, 6);
+  const top = Math.max(1, ...tags.map((x) => x.count));
+  const levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].map((l) => {
+    const ts = GRAMMAR.filter((t) => t.level === l);
+    return { l, known: ts.filter((t) => store.isKnown(t)).length, total: ts.length };
+  });
+  return html`<div class="progress">
+    <h2>Progress</h2>
+    <div class="stats">
+      <div><span class="label">Streak</span><b>${store.streak(goal)}</b><span class="small muted">days at goal</span></div>
+      <div><span class="label">This week</span><b>${week.cards}</b><span class="small muted">${week.cards ? Math.round((week.correct / week.cards) * 100) : 0}% right</span></div>
+    </div>
+    <div class="card">
+      <h3>Last 14 days</h3>
+      <div class="chart">${days.map(({ d, s }) => html`<div class="col">
+        <div class="stack" style=${`height:${(s.cards / peak) * 100}%`}>
+          <i class="miss" style=${`flex:${s.cards - s.correct}`} /><i class="ok" style=${`flex:${s.correct}`} />
+        </div>
+        <span class="small muted">${d.toLocaleDateString(undefined, { weekday: 'narrow' })}</span>
+      </div>`)}
+        <div class="goal-line" style=${`bottom:calc(${(goal / peak) * 100}% * 0.82 + 18px)`} />
+      </div>
+      <p class="small muted"><span class="key ok" /> right <span class="key miss" /> missed · line = daily goal (${goal})</p>
+    </div>
+    <div class="card">
+      <h3>Vocab</h3>
+      <div class="split-bar"><i class="ok" style=${`flex:${learned}`} /><i class="mid" style=${`flex:${started}`} /><i class="none" style=${`flex:${fresh}`} /></div>
+      <p class="small">${learned} learned · ${started} in progress · ${fresh} not started</p>
+      ${store.revisitDueCount ? html`<p class="small warn-text">${store.revisitDueCount} learned words due for a recheck</p>` : null}
+      ${total >= 20 && learned / total >= 0.8 ? html`<p class="small good-text">Most of your vocab is solid. Time to add new words.</p>` : null}
+    </div>
+    <div class="card">
+      <h3>Grammar by level</h3>
+      ${levels.map((x) => html`<div class="tagbar"><div class="row between"><span>${x.l}</span><span class="small muted">${x.known}/${x.total}</span></div><div class="bar thin"><i style=${`width:${(x.known / x.total) * 100}%`} /></div></div>`)}
+      <p class="small muted">Working level: ${level()}</p>
+    </div>
+    <div class="card">
+      <h3>Weak spots</h3>
+      ${!tags.length ? html`<p class="small muted">No open weak spots.</p>` : null}
+      ${tags.map((x) => html`<div class="tagbar"><div class="row between"><span>${x.tag.charAt(0).toUpperCase() + x.tag.slice(1)}</span><b class="small">${x.count}</b></div><div class="bar thin"><i style=${`width:${(x.count / top) * 100}%`} /></div></div>`)}
+      <p class="small muted">${store.dueMistakeCount} mistakes due for review</p>
+    </div>
   </div>`;
 }

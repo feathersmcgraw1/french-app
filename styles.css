@@ -241,3 +241,39 @@ details summary { color: var(--accent-text); }
 .prose p { margin-bottom: 6px; }
 
 .card .btn.soft, .card .icon-btn, .sheet .icon-btn { background: rgba(20, 43, 80, 0.08); }
+
+/* Practice menu */
+.mode-head h2 { font-size: 24px; }
+.menu { display: flex; flex-direction: column; gap: 8px; }
+.menu-item { display: flex; align-items: center; gap: 12px; background: var(--card); border: 0; border-radius: 18px; padding: 12px 14px; text-align: left; }
+.menu-item:active { transform: scale(0.98); }
+.mi-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--navy); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; flex: none; }
+.mi-text { display: flex; flex-direction: column; flex: 1; }
+
+/* Library */
+.word-list { display: flex; flex-direction: column; gap: 6px; }
+.word-row { display: flex; align-items: center; gap: 12px; background: var(--card); border: 0; border-radius: 16px; padding: 10px 14px; text-align: left; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.wtext { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.wtext span { font-size: 14px; }
+.select.half { flex: 1; width: auto; padding: 10px 12px; font-size: 14px; }
+.btn.small-btn { min-height: 34px; padding: 6px 14px; font-size: 13px; }
+.btn.danger-btn { background: var(--bad); color: #fff; }
+.file-btn { text-align: center; display: block; cursor: pointer; }
+.topic { display: flex; align-items: flex-start; gap: 10px; border-top: 1px solid var(--line); padding: 8px 0; }
+.topic .link.left { display: flex; flex-direction: column; padding: 0; text-align: left; }
+.topic .ex { font-style: italic; }
+input.cb { width: 22px; height: 22px; flex: none; accent-color: var(--navy); margin-top: 2px; padding: 0; }
+
+/* Progress */
+.progress h2 { font-size: 26px; }
+.chart { position: relative; display: flex; align-items: flex-end; gap: 4px; height: 150px; }
+.chart .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+.chart .stack { width: 100%; max-height: calc(100% - 18px); min-height: 2px; display: flex; flex-direction: column; border-radius: 5px 5px 2px 2px; overflow: hidden; background: rgba(20, 43, 80, 0.12); }
+.chart .ok, .key.ok, .split-bar .ok { background: var(--navy); }
+.chart .miss, .key.miss { background: var(--orange); }
+.goal-line { position: absolute; left: 0; right: 0; border-top: 2px dashed rgba(20, 43, 80, 0.35); }
+.key { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; }
+.split-bar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: rgba(20, 43, 80, 0.12); }
+.split-bar .mid { background: var(--orange); }
+.split-bar .none { background: rgba(20, 43, 80, 0.15); }
