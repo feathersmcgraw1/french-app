@@ -111,8 +111,10 @@ export function SettingsView({ go }) {
     catch (e) { setTest(e.message); }
   }
   function newSecret() {
-    const b = crypto.getRandomValues(new Uint8Array(18));
-    const s = btoa(String.fromCharCode(...b)).replace(/[+/=]/g, '').slice(0, 24);
+    // No look-alike characters (l, I, 1, O, 0), so it can be copied by eye onto the Mac.
+    const abc = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const b = crypto.getRandomValues(new Uint8Array(24));
+    const s = [...b].map((x) => abc[x % abc.length]).join('');
     settings.set('syncSecret', s);
   }
   return html`<div class="settings">
